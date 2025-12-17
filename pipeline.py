@@ -9,6 +9,7 @@ CONFIG = utils.json_config.load("config/detect_obb.json")
 
 coords_diff = (CONFIG['WORKAREA_POSE']['x'], CONFIG['WORKAREA_POSE']['y'])
 orientation_diff = CONFIG['WORKAREA_POSE']['orientation_degrees']
+pick_height = CONFIG['PICK_HEIGHT']
 
 MODEL_PATH = CONFIG['MODEL_PATH']
 
@@ -186,7 +187,7 @@ def process_frame(frame):
         theta_l = math.radians(orientation)
         x, y, theta = local_to_global_pose(
             x_l, y_l, theta_l, x0, y0, theta0)
-        theta = math.degrees(theta)
+        theta = math.degrees(theta) + 90
 
         cv2.putText(frame, f"({x:.1f}, {y:.1f})",
                     (b["center"][0] + 5, b["center"][1] - 5),
@@ -225,7 +226,7 @@ def process_frame(frame):
             "pick_pose": {
                 "x": x,
                 "y": y,
-                "z": 170,
+                "z": pick_height,
                 "roll_degrees": 0,
                 "pitch_degrees": 180,
                 "yaw_degrees": theta + 90

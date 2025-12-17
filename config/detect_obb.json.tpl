@@ -10,9 +10,10 @@
   ],
   "WORKAREA_POSE": {
     "x": 360,
-    "y": -31,
+    "y": 70,
     "orientation_degrees": 0
   },
+  "PICK_HEIGHT": 173,
   "BOTTLE_STAND_POSE": {
     "x": 330,
     "y": 90,

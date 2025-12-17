@@ -8,7 +8,9 @@ The repository contains the code needed for dataset generation and model trainin
 
 ## Requirements
 
-The code is tested on Python 3.12. The following packages `requirements.txt` are required.
+The code is tested on Python 3.10 and Python 3.12. The following packages `requirements.txt` are required.
+
+Make sure that PyTorch is installed and can access the GPU correctly. You can check that everything work as expected with the Jupyter Notebook located in [./utils/bottle_detector.ipynb](./utils/bottle_detector.ipynb).
 
 ## Dataset Generation
 
@@ -28,7 +30,7 @@ You need to configure the ArUco tag numbers, locations and the pick and place lo
 
 This repository provides a REST API App for execution of bottle detection and pick and place coordinates generation.
 
-This is the current and maintained approach. In order to start the app you should run the uvicorn server by execution of the following command:
+This is the current and maintained approach. In order to start the app you can use the [run.sh](./run.sh) script or you can run the uvicorn server by execution of the following command:
 
 `uvicorn main:app --host 0.0.0.0 --port 22001`.
 

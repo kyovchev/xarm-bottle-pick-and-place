@@ -1,9 +1,8 @@
-ultralytics
+albumentations
 opencv-contrib-python
+opencv-python
 jupyter
-xarm-python-sdk
+matplotlib
 fastapi
 uvicorn
-opencv-python
-numpy
 pydantic

@@ -1,9 +1,12 @@
 # Bottle detector
-yolov8n-obb.pt
 captured/*
 !captured/.gitkeep
 utils/captured/*
 !utils/captured/.gitkeep
+utils/checkpoints/*
+!utils/checkpoints/.gitkeep
+utils/data/*
+!utils/data/.gitkeep
 datasets/*
 !datasets/.gitkeep
 models/*
@@ -11,9 +14,7 @@ models/*
 !models/best.pt
 runs
 config/detect_obb.json
-xarm_pick_and_place.json
-robot_status.json
-pick_and_place.json
+
 
 # Prerequisites
 *.d

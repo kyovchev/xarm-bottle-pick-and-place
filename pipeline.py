@@ -1,7 +1,11 @@
 import cv2
 import numpy as np
-from ultralytics import YOLO
 import math
+
+import torch
+import torchvision.transforms as T
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 
 import utils.json_config
 
@@ -13,7 +17,24 @@ pick_height = CONFIG['PICK_HEIGHT']
 
 MODEL_PATH = CONFIG['MODEL_PATH']
 
-model = YOLO(MODEL_PATH)
+NUM_CLASSES = 3
+CONFIDENCE_THRESHOLD = 0.5
+CLASS_NAMES = {1: 'bottle', 2: 'cap'}
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+model = fasterrcnn_resnet50_fpn(pretrained=False)
+in_features = model.roi_heads.box_predictor.cls_score.in_features
+model.roi_heads.box_predictor = FastRCNNPredictor(in_features, NUM_CLASSES)
+
+checkpoint = torch.load(MODEL_PATH, map_location=device)
+
+if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+    model.load_state_dict(checkpoint['model_state_dict'])
+else:
+    model.load_state_dict(checkpoint)
+model.to(device)
+model.eval()
 
 dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_ARUCO_ORIGINAL)
 parameters = cv2.aruco.DetectorParameters()
@@ -74,9 +95,52 @@ def get_plane_markers(corners, ids):
 def process_frame(frame):
     selected_obj = None
 
-    results = model(frame, conf=0.8, agnostic_nms=True, iou=0.3)
+    image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    transform = T.Compose([T.ToTensor()])
+    image_tensor = transform(image_rgb)
 
-    annotated = results[0].plot()
+    with torch.no_grad():
+        predictions = model([image_tensor.to(device)])
+
+    # Extract predictions
+    pred = predictions[0]
+    boxes = pred['boxes'].cpu().numpy()
+    scores = pred['scores'].cpu().numpy()
+    labels = pred['labels'].cpu().numpy()
+
+    # Filter by confidence
+    mask = scores >= CONFIDENCE_THRESHOLD
+    boxes = boxes[mask]
+    scores = scores[mask]
+    labels = labels[mask]
+
+    annotated = frame.copy()
+
+    # Different colors for different classes
+    class_colors = {
+        1: (0, 255, 0),      # Green for bottle
+        2: (255, 0, 255),    # Magenta for cap
+    }
+
+    for box, score, label in zip(boxes, scores, labels):
+        x1, y1, x2, y2 = box.astype(int)
+
+        # Get color for class
+        color = class_colors.get(label, (0, 255, 0))
+
+        # Draw box
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
+
+        # Draw label and score
+        class_name = CLASS_NAMES.get(label, f'Class {label}')
+        text = f'{class_name}: {score:.2f}'
+
+        # Background for text
+        (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
+        cv2.rectangle(annotated, (x1, y1 - text_height - 4), (x1 + text_width, y1), color, -1)
+
+        # Text
+        cv2.putText(annotated, text, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
     corners, ids = detect_all_markers(frame)
 
@@ -100,22 +164,22 @@ def process_frame(frame):
 
         cv2.polylines(frame, [dst], True, (0, 255, 0), 2)
 
-    r = results[0]
-
     bottles = []
     caps = []
 
-    img_h, img_w = r.orig_shape
+    img_h, img_w, _ = frame.shape
 
     bottles_result = []
 
     # Separate objects by classes
-    for i in range(len(r.obb)):
-        box_obj = r.obb[i]
-        cls_name = results[0].names[int(box_obj.cls[0])]
+    for box, score, label in zip(boxes, scores, labels):
+        x1, y1, x2, y2 = box.astype(int)
 
-        x, y, w, h, angle = box_obj.xywhr[0].cpu().numpy()  # normalized
-        pts = box_obj.xyxyxyxy[0].cpu().numpy().astype(np.int32)
+        cls_name = CLASS_NAMES.get(label, f'Class {label}')
+
+        x, y = (x1 + x2) / 2, (y1 + y2) / 2
+        pts = np.array([[x1,y1],[x1,y2],[x2,y2],[x2,y1]]).astype(np.int32)
+
         mask = np.zeros((img_h, img_w), dtype=np.uint8)
         cv2.fillPoly(mask, [pts], 255)
 
@@ -129,10 +193,9 @@ def process_frame(frame):
 
         obj = {
             "center": (int(x), int(y)),
-            "angle": angle,
             "pts": pts,
             "mask": mask,
-            "conf": r.obb[i].conf[0].item(),
+            "conf": score,
             "coords": coords
         }
 
